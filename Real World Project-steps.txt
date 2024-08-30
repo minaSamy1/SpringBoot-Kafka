@@ -1,0 +1,44 @@
+      ------------------------- Producer Project ----------------
+1- Create Producer project 
+     - adding the configuration of producer to app.pro
+     - create configuration class to create new topi
+     - create producer class as ( @Service ) to send message 
+  as we will read Stream data from this URL :  https://stream.wikimedia.org/v2/stream/recentchange
+     - so here is different we wil get the data which will send to message broker from external i mean 
+        from URL so we will create Class Extend from EventHandler .  so we need to add some new dependency in pom.xml to able read 
+         the stream data .
+         and override all method and push the message on method  onMessage ()
+      - inside the producer will call this method ( OnMesaage) after Autowired this class 
+      - we need to run the producer class instead of adding new Controller 
+         we will use the ( CommandLineRunner ) in the MainClass by implement interface and run the method 
+
+            	@Autowired
+	private KafkaWikiMediaProducer producer ;
+	@Override
+	public void run(String... args) throws Exception {
+               producer.send();
+	}
+
+now once you run the project you will find it get data and print in the log  
+ 
+        ------------------------------------ Consumer -------------------------------
+
+
+- it's as usual Kafka Consumer  
+    - adding the configuration of producer to app.pro 
+    - create Consumer class( @Service ) which read the message from the topic which we define in properities 
+        now once we run the app the messages in topic will be printed 
+
+
+   + New  we need to save this data which we recive each time in  DB   ( adding the depenecy  H2 , JPA )
+      - we will use H2 DB 
+      - create configuration for H2 DB in application 
+      - create Entitiy Class (  id  , eventdata "lob' )
+      - create Repo class 
+      - back to consumer and @autowired the repo and save the data to DB 
+
+
+once you run the producer and consumer in each server log will print the message and must be save in  DB 
+     
+
+             
