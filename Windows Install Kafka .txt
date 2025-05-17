@@ -1,21 +1,36 @@
-
+- make sure that your machine already have have installed by ( java -version )
 STEP 0 Download Kafka 
   https://www.apache.org/dyn/closer.cgi?path=/kafka/3.8.0/kafka_2.13-3.8.0.tgz
 
 STEP 1 Start Kafka Environment 
+1- cd C:\kafka
+2- .\bin\windows\zookeeper-server-start.bat .\config\zookeeper.properties
+
 C:\kafka>.\bin\windows\zookeeper-server-start.bat .\config\zookeeper.properties
 
 STEP 2 Start Kafka Broker Server
+1- open new termina then 1- cd C:\kafka
+2- .\bin\windows\kafka-server-start.bat .\config\server.properties
+
 C:\kafka>.\bin\windows\kafka-server-start.bat .\config\server.properties
 
 STEP 3 Create Toic to store Event 
+1- open new termina then 1- cd C:\kafka
+2- .\bin\windows\kafka-topics.bat --create --topic topic_demo --bootstrap-server localhost:9092
+
 C:\kafka>.\bin\windows\kafka-topics.bat --create --topic topic_demo --bootstrap-server localhost:9092
 
 
 STEP 4 Write Some Event into Topic
+1- open new termina then 1- cd C:\kafka
+2- .\bin\windows\kafka-console-producer.bat --topic topic_demo --bootstrap-server localhost:9092
+
 C:\kafka>.\bin\windows\kafka-console-producer.bat --topic topic_demo --bootstrap-server localhost:9092
 >hello mina in Kafka
 > Stavros
 
 STEP 5 Read the Events
+1- open new termina then 1- cd C:\kafka
+2- .\bin\windows\kafka-console-consumer.bat --topic topic_demo --from-beginning  --bootstrap-server localhost:9092
+
 C:\kafka>.\bin\windows\kafka-console-consumer.bat --topic topic_demo --from-beginning  --bootstrap-server localhost:9092
