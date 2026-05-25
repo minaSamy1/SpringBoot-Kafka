@@ -1,0 +1,93 @@
+
+
+  Testting : Call the producer Api to send message or event to topic
+  
+  - so how tesing done on conusmer app once you running the consumer app and 
+     you  @KafkaListener for topic once any producer send the event or message 
+     the listener will read it automtically	 
+  
+- In Consumer Project 
+
+1- to get All message or event from the Topic on all partion 
+
+
+
+    Logger log = LoggerFactory.getLogger(KafkaMessageListener.class);
+    @KafkaListener(topics = "springtboot-topic2", groupId = "group1")
+    public void getMessage(String message) {
+           log.info(" Consumer  receive "+message);
+
+    }
+	
+	
+2- To get All message which send to different topic 
+   so we will have 4 consumer each one will work on speacific partion
+
+ - solution 1 ( NOT Good Idea ) to create 4 method or 4 thread each one will be assing for partion
+		@Service
+		public class KafkaMessageListener {
+
+			Logger log = LoggerFactory.getLogger(KafkaMessageListener.class);
+			@KafkaListener(topics = "springtboot-topic2", groupId = "group1")
+			public void getMessage(String message) {
+				   log.info(" Consumer 1 receive "+message);
+
+			}
+			@KafkaListener(topics = "springtboot-topic2", groupId = "group1")
+			public void getMessage2(String message) {
+				log.info(" Consumer 2 receive "+message);
+
+			}
+
+			@KafkaListener(topics = "springtboot-topic2", groupId = "group1")
+			public void getMessage3(String message) {
+				log.info(" Consumer 3 receive "+message);
+
+			}
+			@KafkaListener(topics = "springtboot-topic2", groupId = "group1")
+			public void getMessage4(String message) {
+				log.info(" Consumer 4 receive "+message);
+
+			}
+			
+	2- Using Concurreny ( Recommended )
+	
+	    @KafkaListener(topics = "springtboot-topic2", groupId = "group1" , concurrency = "4")
+			public void getMessage(String message) {
+				   log.info(" Consumer  receive "+message);
+
+			}
+========== Consume Object from Kafka ================================
+
+- create customer DTO 
+    @Data
+	@AllArgsConstructor
+	@NoArgsConstructor
+	public class Customer {
+
+
+		private String name;
+		private String email;
+		private String contactNo;
+	}
+	
+2- in application properties [ HAM ]
+	spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+	spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
+	spring.kafka.consumer.properties.spring.json.use.type.headers=false
+	spring.kafka.consumer.properties.spring.json.value.default.type=com.example.kafka_consumer.dto.Customer
+
+
+
+## why use this to disable the Header of Message 
+   if the producer send object customer class ( which this exist on pkg [ com.eg.dto ]
+   so in conusmer app you create customer class ( which this exist on pkg [ app.com.dto ] )
+   
+   so whene the Kafla Listener try to receive this message and find the Header of message not same path or pkage
+    it show error like this [  failed to resolve class name. Class not found [com.example.kafka.dto.Customer] ]	
+   
+spring.kafka.consumer.properties.spring.json.use.type.headers=false
+
+
+
+

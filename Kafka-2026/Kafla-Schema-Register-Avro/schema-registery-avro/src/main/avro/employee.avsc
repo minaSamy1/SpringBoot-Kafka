@@ -1,0 +1,27 @@
+{
+  "namespace": "com.example.schema_registery_avro.dto",
+  "type": "record",
+  "name": "Employee",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "firstName",
+      "type": "string"
+    }
+ ,
+    {
+      "name": "lastName",
+      "type": "string"
+   }
+,
+    {
+      "name": "email",
+      "type": ["null", "string"],
+      "default": ""
+    }
+
+  ]
+}

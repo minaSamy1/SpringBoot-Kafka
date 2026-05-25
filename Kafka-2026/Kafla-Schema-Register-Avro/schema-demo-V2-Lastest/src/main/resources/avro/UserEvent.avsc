@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "UserEvent",
+  "namespace": "com.example.schema_demo.avro",
+  "fields": [
+    {"name": "userId",    "type": "string"},
+    {"name": "eventType", "type": "string"},
+    {"name": "timestamp", "type": "string"},
+    {"name": "email",     "type": ["null", "string"], "default": null},
+    {"name": "country",     "type": ["null", "string"], "default": null}
+  ]
+}

@@ -1,0 +1,6 @@
+
+1- Kafka-UI 
+   http://localhost:8090/ui
+
+2- Schema Registery 
+  http://localhost:8081/

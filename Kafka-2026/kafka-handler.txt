@@ -1,0 +1,93 @@
+1- we will talk about the Handle-Exception if we received Wrong message 
+   or message have some data wrong or after you receive the message 
+   and while you doing or processing it like calling api or anything
+   happen so you need to handle this message to do process again 
+   
+so the mechnasim 
+  1- we will try to receive the  message again and processing it  @RetryableTopic
+  2- if after all retries done and still the message is wrong or not processed 
+    so spring will move the  message for 
+	speafici Topic which will contain all message which have problem 
+	  
+
+NOTE :
+  1- after the all retries done and we the message moved to DTL 
+   we need to create new Method TO CONFIRM THAT the message is RECEIVED in DTL using @DltHandler 
+    DLT (Dead Letter Topic)
+
+
+  2- incase you did'nt do this method the retries will still send to DTL for infinity loop 
+
+
+  3- kindly note onece we use the  @RetryableTopic it will create automatic the Topic for retry and topic for DTl
+       handler-demo-try      handler-demo-dtl
+	   
+	   
+  
+
+Example : 
+
+- the Producer 
+
+	  @Autowired
+		private KafkaTemplate<String , Object>template ;
+		@Value("${topic.name}")
+		private String topicName;
+
+		public void send(User user)
+		{
+
+
+			CompletableFuture<SendResult<String, Object>> future =template.send(topicName ,user);
+
+			future.whenComplete((result, ex) -> {
+				if (ex == null) {l
+					System.out.println("Message Sent Successfully: " + result.getRecordMetadata().offset());
+				} else {
+					System.err.println("Error while Sending Message: " + ex.getMessage());
+				}
+
+		});
+
+		}
+
+
+
+2- the Consumer and Handler 
+
+		@Slf4j
+		@Service
+		public class KafkaListenerConsumer {
+
+			private String topicName;
+
+			@RetryableTopic(attempts = "4")// 3 topic N-1
+			@KafkaListener(topics = "handler-demo", groupId = "group1")
+			public void readMessage(User user) {
+
+
+					System.out.println(" recived object " + user.toString());
+					List<String> e = Arrays.asList("192.168.111.1", "192.168.111.12");
+					for (String current : e) {
+
+
+						if (current.contains(user.getIpAddress())) {
+							throw new RuntimeException("Invalid IP Address received !");
+						}
+
+					}
+
+			}
+
+
+			@DltHandler
+			public void listenDLT(User user, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
+			                      , @Header(KafkaHeaders.OFFSET) long offset) {
+				log.info("DLT Received : {} , from {} , offset {}",user.getFirstName(),topic,offset);
+			}
+			
+- we can set like timer between every TRY 
+			4- @RetryableTopic(
+				attempts = "4",
+				backoff = @Backoff(delay = 2000)
+			)   // every 2 sec make try

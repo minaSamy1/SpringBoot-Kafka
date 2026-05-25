@@ -1,0 +1,306 @@
+Kafka Schema Registry Demo - Full Guide
+Step 1 — Project Structure
+		kafka-schema-registry-demo/
+		├── docker-compose.yml
+		├── producer/
+		│   ├── pom.xml
+		│   └── src/main/
+		│       ├── java/com/demo/producer/
+		│       │   ├── ProducerApplication.java
+		│       │   ├── config/KafkaProducerConfig.java
+		│       │   ├── service/UserEventProducer.java
+		│       │   └── controller/ProducerController.java
+		│       └── resources/
+		│           ├── application.yml
+		│           └── avro/UserEvent.avsc
+		└── consumer/
+		├── pom.xml
+		└── src/main/
+		├── java/com/demo/consumer/
+		│   ├── ConsumerApplication.java
+		│   ├── config/KafkaConsumerConfig.java
+		│   └── listener/UserEventListener.java
+		└── resources/
+└── application.yml
+
+Step 2 — docker-compose.yml
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      # الفرق هنا — listenerين
+      # INTERNAL  → للتواصل بين الـ containers (باسم kafka)
+      # EXTERNAL  → للتواصل من برّا Docker (localhost)
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      # هنا بيستخدم INTERNAL listener — بيتكلم مع kafka باسمه جوه Docker
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-cluster
+      # هنا برضو INTERNAL
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+
+Command to run:
+docker-compose up -d
+
+
+Step 3 — Avro Schema (src/main/resources/avro/UserEvent.avsc)
+{
+"type": "record",
+"name": "UserEvent",
+"namespace": "com.demo.avro",
+"fields": [
+{"name": "userId",    "type": "string"},
+{"name": "eventType", "type": "string"},
+{"name": "timestamp", "type": "long"},
+{"name": "email",     "type": ["null", "string"], "default": null}
+]
+}
+
+Step 4 — Producer pom.xml
+
+(Add to dependencies: avro, kafka-avro-serializer, lombok, spring-kafka)
+(Add Avro Maven Plugin to build/plugins to generate classes from .avsc)
+
+xml<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.demo</groupId>
+  <artifactId>producer</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.0</version>
+  </parent>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>confluent</id>
+      <url>https://packages.confluent.io/maven/</url>
+    </repository>
+  </repositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Avro -->
+    <dependency>
+      <groupId>org.apache.avro</groupId>
+      <artifactId>avro</artifactId>
+      <version>1.11.3</version>
+    </dependency>
+
+    <!-- Confluent Avro Serializer -->
+    <dependency>
+      <groupId>io.confluent</groupId>
+      <artifactId>kafka-avro-serializer</artifactId>
+      <version>7.5.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <!-- Avro Maven Plugin — generates Java classes from .avsc -->
+      <plugin>
+        <groupId>org.apache.avro</groupId>
+        <artifactId>avro-maven-plugin</artifactId>
+        <version>1.11.3</version>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals><goal>schema</goal></goals>
+            <configuration>
+              <sourceDirectory>${project.basedir}/src/main/resources/avro</sourceDirectory>
+              <outputDirectory>${project.basedir}/src/main/java</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+
+Step 5 — Producer application.yml
+
+	sever.port=8087
+
+	spring.kafka.bootstrap-servers=localhost:9092
+	spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+	spring.kafka.producer.value-serializer=io.confluent.kafka.serializers.KafkaAvroSerializer
+	spring.kafka.producer.properties.schema.registry.url=http://localhost:8081
+	spring.kafka.producer.properties.auto.register.schemas=true
+
+	kafka.topic.user-events=user-events
+
+
+
+	spring.kafka.consumer.group-id=javatechie-new
+	spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+	spring.kafka.consumer.value-deserializer=io.confluent.kafka.serializers.KafkaAvroDeserializer
+	spring.kafka.consumer.auto-offset-reset=earliest
+	spring.kafka.consumer.properties.schema.registry.url=http://127.0.0.1:8081
+
+	## set to ensure the Consumer automatically maps incoming messages to the generated `Employee` class.
+	spring.kafka.consumer.properties.specific.avro.reader=true
+
+Step 6 — KafkaProducerConfig.java OPTIONAL
+Set ProducerFactory with StringSerializer and KafkaAvroSerializer.
+
+Add KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG.
+
+Step 7 — UserEventProducer.java
+Inject KafkaTemplate<String, Object>.
+
+Build UserEvent using UserEvent.newBuilder()...build().
+
+Send to topic using kafkaTemplate.send(topic, userId, event).
+
+
+ @Autowired
+    private KafkaTemplate<String,Object> template;
+
+    public void Send(UserEvent event)
+    {
+
+        template.send("topic1", UUID.randomUUID().toString(),event);
+    }
+
+
+
+
+
+
+Step 8 — ProducerController.java
+Expose POST /api/events/send endpoint.
+
+Call UserEventProducer.sendUserEvent(userId, eventType, email).
+
+ 
+    @Autowired
+    private EventProducer producer;
+
+    @PostMapping("/sendObject")
+
+    public ResponseEntity sendContrObject(@RequestBody UserEvent event) {
+        producer.Send(event);
+
+        return ResponseEntity.status(HttpStatus.OK).body(" message sent");
+
+
+Step 9 — Consumer pom.xml
+Include same dependencies as Producer (kafka-avro-serializer contains the Deserializer).
+
+Step 10 — Consumer application.yml
+spring:
+kafka:
+consumer:
+key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+properties:
+schema.registry.url: http://localhost:8081
+specific.avro.reader: true
+
+Step 11 — KafkaConsumerConfig.java
+Set ConsumerFactory with KafkaAvroDeserializer.
+
+Enable KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG = true.
+
+Step 12 — UserEventListener.java
+Use @KafkaListener to consume from "user-events" topic.
+
+Step 13 — How to run
+docker-compose up -d
+
+Run Producer: mvn spring-boot:run
+
+Run Consumer: mvn spring-boot:run
+
+Send Event: curl -X POST "http://localhost:8080/api/events/send?userId=u123&eventType=LOGIN&email=test@test.com"
+
+⚡ Interview Cheat Sheet
+Why Schema Registry?
+
+Prevents invalid data (Producer validation).
+
+Schema Evolution support.
+
+Saves bandwidth (sends ID instead of full schema with every message).
+
+Compatibility Types:
+
+		BACKWARD: Consumer can read older data (Default).
+
+		FORWARD: Consumer can read newer data.
+
+		FULL: Backward and Forward.
+
+		NONE: Disabled.
